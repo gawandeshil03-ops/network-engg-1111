@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Network Monitor Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Python · Flask · SQLite · Networking</p>
+        <h1>Small Business Network Monitor</h1>
+        <p class="subtitle">A lightweight dashboard for checking device availability, latency, packet loss, DNS resolution and one configured TCP port.</p>
+      </div>
+      <button id="refreshButton" class="primary" type="button">Run checks now</button>
+    </header>
+
+    <section class="summary-grid">
+      <article class="summary-card"><span>Targets</span><strong id="targetCount">{{ targets|length }}</strong></article>
+      <article class="summary-card"><span>Online</span><strong id="onlineCount">—</strong></article>
+      <article class="summary-card"><span>Average latency</span><strong id="averageLatency">—</strong></article>
+      <article class="summary-card"><span>Last refresh</span><strong id="lastRefresh">Not checked</strong></article>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Live status</p>
+          <h2>Monitored devices</h2>
+        </div>
+        <p class="hint">The page refreshes checks every 30 seconds while it is open.</p>
+      </div>
+      <div id="deviceGrid" class="device-grid">
+        {% for target in targets %}
+        <article class="device-card loading" data-target-id="{{ target.id }}">
+          <div class="device-title-row">
+            <div>
+              <h3>{{ target.name }}</h3>
+              <p>{{ target.host }}{% if target.port %}:{{ target.port }}{% endif %}</p>
+            </div>
+            <span class="status-badge">Waiting</span>
+          </div>
+          <dl>
+            <div><dt>Latency</dt><dd data-field="latency">—</dd></div>
+            <div><dt>Packet loss</dt><dd data-field="loss">—</dd></div>
+            <div><dt>DNS</dt><dd data-field="dns">—</dd></div>
+            <div><dt>Port</dt><dd data-field="port">—</dd></div>
+            <div><dt>Recent uptime</dt><dd data-field="uptime">—</dd></div>
+          </dl>
+          <p class="error" data-field="error"></p>
+          <form method="post" action="{{ url_for('remove_target', target_id=target.id) }}">
+            <button class="text-button" type="submit">Remove target</button>
+          </form>
+        </article>
+        {% else %}
+        <p id="emptyMessage" class="empty">No targets yet. Add your router, NAS, printer, server or a public host below.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="history-heading">
+        <div>
+          <p class="eyebrow">Performance history</p>
+          <h2>Latency &amp; packet loss over time</h2>
+          <p class="hint">Select a target to review its latest stored measurements. New points are added after each network check.</p>
+        </div>
+        <label class="target-select-label" for="historyTarget">Chart target
+          <select id="historyTarget" {% if not targets %}disabled{% endif %}>
+            {% for target in targets %}
+            <option value="{{ target.id }}">{{ target.name }} · {{ target.host }}</option>
+            {% else %}
+            <option>No targets available</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div id="historyMessage" class="chart-message" aria-live="polite">Run a check to build history.</div>
+
+      <div class="chart-grid">
+        <article class="chart-card">
+          <div class="chart-card-heading">
+            <div>
+              <span class="chart-kicker">Response time</span>
+              <h3>Latency over time</h3>
+            </div>
+            <div class="chart-stat-group" aria-label="Latency statistics">
+              <span>Latest <strong id="latencyLatest">—</strong></span>
+              <span>Average <strong id="latencyAverage">—</strong></span>
+              <span>Peak <strong id="latencyPeak">—</strong></span>
+            </div>
+          </div>
+          <svg id="latencyChart" class="history-chart" viewBox="0 0 720 280" role="img" aria-label="Latency history line chart"></svg>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-card-heading">
+            <div>
+              <span class="chart-kicker">Reliability</span>
+              <h3>Packet loss over time</h3>
+            </div>
+            <div class="chart-stat-group" aria-label="Packet loss statistics">
+              <span>Latest <strong id="lossLatest">—</strong></span>
+              <span>Average <strong id="lossAverage">—</strong></span>
+              <span>Peak <strong id="lossPeak">—</strong></span>
+            </div>
+          </div>
+          <svg id="packetLossChart" class="history-chart" viewBox="0 0 720 280" role="img" aria-label="Packet loss history line chart"></svg>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel two-column">
+      <div>
+        <p class="eyebrow">Add a target</p>
+        <h2>Monitor another device</h2>
+        <p class="hint">Examples: router 192.168.1.1, NAS 192.168.1.10 port 445, printer 192.168.1.20 port 9100, or google.com port 443.</p>
+      </div>
+      <form class="target-form" method="post" action="{{ url_for('create_target') }}">
+        <label>Name <input name="name" placeholder="Office NAS" required maxlength="80"></label>
+        <label>Host / IP <input name="host" placeholder="192.168.1.10" required maxlength="253"></label>
+        <label>TCP port (optional) <input name="port" type="number" min="1" max="65535" placeholder="445"></label>
+        <button class="primary" type="submit">Add target</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <p class="eyebrow">What this project demonstrates</p>
+      <h2>Networking + Python + troubleshooting</h2>
+      <div class="feature-list">
+        <span>Ping availability</span><span>Packet loss</span><span>Latency</span><span>DNS resolution</span><span>TCP port check</span><span>SQLite history</span><span>Time-series charts</span><span>Responsive dashboard</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

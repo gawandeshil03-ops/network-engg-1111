@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: iotops
+      POSTGRES_USER: iotops
+      POSTGRES_PASSWORD: iotops
+    volumes:
+      - iot_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iotops -d iotops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.iot
+    environment:
+      DATABASE_URL: postgresql+psycopg://iotops:iotops@postgres:5432/iotops
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  mqtt-ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile.iot
+    command: ["python", "mqtt_ingest.py"]
+    environment:
+      API_BASE_URL: http://api:8000
+      MQTT_BROKER: mosquitto
+      MQTT_PORT: 1883
+    depends_on:
+      - api
+      - mosquitto
+    restart: unless-stopped
+
+  simulator:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: Dockerfile.iot
+    command: ["sh", "-c", "sleep 5 && python simulator.py --api http://api:8000 --broker mosquitto --count 50 --interval 10"]
+    depends_on:
+      - api
+      - mosquitto
+
+volumes:
+  iot_postgres_data:

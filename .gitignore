@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+network_monitor.db
+.pytest_cache/
+.DS_Store

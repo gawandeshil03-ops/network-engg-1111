@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Industrial IoT Operations Intelligence</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;background:#f4f6f8;color:#17202a}.shell{max-width:1180px;margin:auto;padding:32px}.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:#65758b}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:24px 0}.card,.panel{background:white;border:1px solid #dde3ea;border-radius:14px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.04)}.card span{display:block;color:#65758b;font-size:13px}.card strong{display:block;font-size:28px;margin-top:8px}.panel{margin-top:20px}.device,.alert{padding:12px 0;border-bottom:1px solid #edf0f3}.device:last-child,.alert:last-child{border-bottom:0}.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#eef2f6;font-size:12px}.critical{background:#fde8e8}.warning{background:#fff5d6}.muted{color:#65758b}.row{display:flex;justify-content:space-between;gap:16px;align-items:center}.refresh{border:0;border-radius:8px;padding:10px 14px;background:#17202a;color:white;cursor:pointer}code{background:#eef2f6;padding:2px 6px;border-radius:5px}pre{overflow:auto;background:#101820;color:#f6f8fa;padding:16px;border-radius:10px}</style>
+</head>
+<body>
+<main class="shell">
+  <section class="hero">
+    <div>
+      <p class="eyebrow">IoT · REST API · MQTT · PostgreSQL · AI</p>
+      <h1>Industrial IoT Operations Intelligence</h1>
+      <p class="muted">Connected-device telemetry ingestion, anomaly detection, network performance monitoring and AI-assisted incident summaries.</p>
+    </div>
+    <button class="refresh" onclick="refreshAll()">Refresh</button>
+  </section>
+
+  <section class="grid">
+    <article class="card"><span>Devices</span><strong id="devices">—</strong></article>
+    <article class="card"><span>Telemetry events</span><strong id="events">—</strong></article>
+    <article class="card"><span>Events last minute</span><strong id="recent">—</strong></article>
+    <article class="card"><span>Open alerts</span><strong id="alerts">—</strong></article>
+    <article class="card"><span>Average signal</span><strong id="signal">—</strong></article>
+    <article class="card"><span>Average latency</span><strong id="latency">—</strong></article>
+  </section>
+
+  <section class="panel">
+    <div class="row"><div><p class="eyebrow">Fleet</p><h2>Connected devices</h2></div><span class="badge">Live API</span></div>
+    <div id="deviceList" class="muted">Loading…</div>
+  </section>
+
+  <section class="panel">
+    <div class="row"><div><p class="eyebrow">Operations</p><h2>Recent alerts</h2></div><span class="badge">Rule + AI workflow</span></div>
+    <div id="alertList" class="muted">Loading…</div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">REST example</p>
+    <h2>Send telemetry</h2>
+    <pre>POST /api/v1/telemetry
+{
+  "device_id": 1,
+  "temperature": 74.2,
+  "vibration": 2.8,
+  "signal_strength": -76,
+  "latency_ms": 41,
+  "packet_loss": 0.4,
+  "status": "running"
+}</pre>
+  </section>
+</main>
+<script>
+const value = (v, suffix='') => v === null || v === undefined ? '—' : `${v}${suffix}`;
+async function refreshAll(){
+  try{
+    const [metricsResponse, devicesResponse, alertsResponse] = await Promise.all([
+      fetch('/api/v1/analytics/fleet', {cache:'no-store'}),
+      fetch('/api/v1/devices', {cache:'no-store'}),
+      fetch('/api/v1/alerts?limit=10&open_only=true', {cache:'no-store'})
+    ]);
+    const metrics = await metricsResponse.json();
+    const devices = (await devicesResponse.json()).devices || [];
+    const alerts = (await alertsResponse.json()).alerts || [];
+    document.getElementById('devices').textContent = value(metrics.devices);
+    document.getElementById('events').textContent = value(metrics.telemetry_events);
+    document.getElementById('recent').textContent = value(metrics.telemetry_last_minute);
+    document.getElementById('alerts').textContent = value(metrics.open_alerts);
+    document.getElementById('signal').textContent = value(metrics.average_signal_strength, ' dBm');
+    document.getElementById('latency').textContent = value(metrics.average_latency_ms, ' ms');
+    document.getElementById('deviceList').innerHTML = devices.length ? devices.map(d => `<div class="device row"><div><strong>${d.name}</strong><div class="muted">${d.device_type}${d.location ? ' · '+d.location : ''}</div></div><span class="badge">#${d.id}</span></div>`).join('') : 'No IoT devices yet. Start the simulator or create one through the API.';
+    document.getElementById('alertList').innerHTML = alerts.length ? alerts.map(a => `<div class="alert"><div class="row"><strong>${a.device_name}</strong><span class="badge ${a.severity}">${a.severity}</span></div><div>${a.message}</div><small class="muted">${a.code} · ${a.created_at}</small></div>`).join('') : 'No open alerts.';
+  }catch(error){ console.error(error); }
+}
+refreshAll();
+setInterval(refreshAll, 10000);
+</script>
+</body>
+</html>
